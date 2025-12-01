@@ -2,8 +2,10 @@
 
 A web interface for [Ollama](https://ollama.ai/).
 
-<video src="https://github.com/Pleym/OllamaUI/raw/main/demo/video.mp4" controls="controls" style="max-width: 100%;">
-</video>
+
+
+https://github.com/user-attachments/assets/07b69988-dfb1-4b74-ad85-a315aecc8039
+
 
 ## Features
 
