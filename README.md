@@ -2,6 +2,7 @@
 
 A web interface for [Ollama](https://ollama.ai/).
 
+[!Demo](https://youtu.be/6Cd-FR4b0ro)
 ## Features
 
 - **Streaming**: Real-time typewriter effect for AI responses.
