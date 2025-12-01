@@ -2,7 +2,9 @@
 
 A web interface for [Ollama](https://ollama.ai/).
 
-!(https://github.com/abldorian/OllamaUI/blob/main/demo/video.mp4)
+<video src="https://github.com/Pleym/OllamaUI/raw/main/demo/video.mp4" controls="controls" style="max-width: 100%;">
+</video>
+
 ## Features
 
 - **Streaming**: Real-time typewriter effect for AI responses.
