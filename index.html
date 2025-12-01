@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="OllamaUI" content="width=device-width,initial-scale=1.0" />
+    <title>OllamaUI</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <main class="main">
+        <div class="Intro">
+            <h1>Welcome to OllamaUI</h1>
+            <section id="intro">
+                <p>homemade UI for ollama by </p>
+                <a href="https://abldorian.dev"> Dorian.A </a>
+                <p> :)</p>
+            </section>
+            <select id="model-selection">
+                <option value="qwen2.5-coder:7b">Qwen2.5 7b param</option>
+                <option value="other">Other option later...</option>
+            </select>
+        </div>
+        <div id="Ollama-Chat"></div>
+        <div class="input-area">
+            <div class="input-container">
+                <textarea id="user-input" placeholder="Ask anything..."></textarea>
+                <button id="send-btn">Send</button>
+            </div>
+        </div>
+    </main>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    const modelSelect = document.getElementById("model-selection");
+    const ModelBox = document.getElementById("Ollama-Chat");
+    const sendBtn = document.getElementById("send-btn");
+    const userInput = document.getElementById("user-input");
+
+    // Fetch models on load
+    async function fetchModels() {
+        try {
+            const response = await fetch("/api/tags");
+            const data = await response.json();
+
+            if (data.models) {
+                modelSelect.innerHTML = ""; // Clear default options
+                data.models.forEach((model, index) => {
+                    const option = document.createElement("option");
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    modelSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching models:", error);
+        }
+    }
+
+    fetchModels();
+
+    // Auto-resize
+    userInput.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Enter to send (Shift+Enter for new line)
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+
+    sendBtn.onclick = async () => {
+        const prompt = userInput.value.trim();
+        if (!prompt) return;
+
+        const model = modelSelect.value;
+
+        addMessage("user", prompt);
+        userInput.value = "";
+        userInput.style.height = '24px';
+
+        // Create a placeholder for the bot's response
+        const botMsgDiv = addMessage("bot", "");
+
+        // Inject system instruction for code formatting
+        const systemInstruction = "\n\nIMPORTANT: If you provide code, please wrap it in markdown code blocks (```).";
+        const finalPrompt = prompt + systemInstruction;
+
+        try {
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: model,
+                    prompt: finalPrompt,
+                    stream: true
+                })
+            });
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const json = JSON.parse(line);
+                        if (json.response) {
+                            fullText += json.response;
+                            botMsgDiv.innerHTML = marked.parse(fullText);
+                            ModelBox.scrollTop = ModelBox.scrollHeight;
+                        }
+                    } catch (e) {
+                        console.error("Error parsing JSON chunk", e);
+                    }
+                }
+            }
+
+        } catch (err) {
+            botMsgDiv.textContent = "Impossible de contacter Ollama.";
+            console.error(err);
+        }
+    };
+
+    function addMessage(sender, text) {
+        const msg = document.createElement("div");
+        msg.className = sender === "user" ? "msg user" : "msg bot";
+        if (sender === "user") {
+            msg.textContent = text;
+        } else {
+            msg.innerHTML = marked.parse(text);
+        }
+        ModelBox.appendChild(msg);
+        ModelBox.scrollTop = ModelBox.scrollHeight;
+        return msg;
+    }
+</script>
+
+</html>

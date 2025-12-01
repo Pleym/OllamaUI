@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ollama Chat</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        body {
+            max-width: 800px;
+            padding: 2rem;
+        }
+
+        .msg {
+            padding: 1.5rem;
+            border: 1px solid var(--highlight-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            margin-bottom: 1rem;
+        }
+
+        .msg.user {
+            border-color: var(--text-light);
+            background: transparent;
+        }
+
+        .msg.user::before {
+            content: "YOU";
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            letter-spacing: 1px;
+        }
+
+        .msg.bot {
+            border-color: var(--highlight-border);
+        }
+
+        .msg.bot::before {
+            content: "AI";
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            letter-spacing: 1px;
+        }
+
+        .input-area {
+            background: var(--bg);
+            border-top: 1px solid var(--highlight-border);
+        }
+
+        button {
+            border: 1px solid var(--text-main);
+            color: var(--text-main);
+        }
+
+        button:hover {
+            background: var(--text-main);
+            color: var(--bg);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="Ollama-Chat"></div>
+    <div class="input-area">
+        <div class="input-container">
+            <textarea id="user-input" placeholder="Type a message..."></textarea>
+            <button id="send-btn">SEND</button>
+        </div>
+    </div>
+    <select id="model-selection" style="display:none;">
+        <option value="qwen2.5-coder:7b">Default</option>
+    </select>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Same logic as terminal but adapted
+        const ModelBox = document.getElementById("Ollama-Chat");
+        const sendBtn = document.getElementById("send-btn");
+        const userInput = document.getElementById("user-input");
+
+        userInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        sendBtn.onclick = async () => {
+            const prompt = userInput.value.trim();
+            if (!prompt) return;
+
+            addMessage("user", prompt);
+            userInput.value = "";
+            userInput.style.height = '24px';
+
+            const botMsgDiv = addMessage("bot", "");
+
+            try {
+                const res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ model: "qwen2.5-coder:7b", prompt: prompt, stream: true })
+                });
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const json = JSON.parse(line);
+                            if (json.response) {
+                                fullText += json.response;
+                                botMsgDiv.innerHTML = marked.parse(fullText);
+                                window.scrollTo(0, document.body.scrollHeight);
+                            }
+                        } catch (e) { }
+                    }
+                }
+            } catch (err) { botMsgDiv.textContent = "Error."; }
+        };
+
+        function addMessage(sender, text) {
+            const msg = document.createElement("div");
+            msg.className = sender === "user" ? "msg user" : "msg bot";
+            if (sender === "user") msg.textContent = text;
+            else msg.innerHTML = marked.parse(text);
+            ModelBox.appendChild(msg);
+            window.scrollTo(0, document.body.scrollHeight);
+            return msg;
+        }
+    </script>
+</body>
+
+</html>
